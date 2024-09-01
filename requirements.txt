@@ -1,5 +1,5 @@
 streamlit
-opencv-python
+opencv-python>=4.1.1
 matplotlib
 csvfile
 tqdm
