@@ -1,6 +1,6 @@
 streamlit
 opencv-python
 matplotlib
-python-csv
+csvfile
 tqdm
 scipy
