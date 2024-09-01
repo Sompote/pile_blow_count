@@ -8,16 +8,25 @@ from tqdm import tqdm
 from scipy.optimize import curve_fit
 
 class DeformationTracker:
-    def __init__(self, aruco_dict_type, marker_size_mm):
+    def __init__(self, aruco_dict_type, marker_size_mm, use_cuda):
         self.aruco_dict = cv2.aruco.getPredefinedDictionary(aruco_dict_type)
         self.parameters = cv2.aruco.DetectorParameters()
         self.detector = cv2.aruco.ArucoDetector(self.aruco_dict, self.parameters)
         self.marker_size_mm = marker_size_mm
         self.initial_position = None
         self.initial_marker_size_pixels = None
+        self.use_cuda = use_cuda
+        if self.use_cuda:
+            self.gpu_frame = cv2.cuda_GpuMat()
 
     def calculate_deformation(self, frame):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if self.use_cuda:
+            self.gpu_frame.upload(frame)
+            gpu_gray = cv2.cuda.cvtColor(self.gpu_frame, cv2.COLOR_BGR2GRAY)
+            gray = gpu_gray.download()
+        else:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
         corners, ids, rejected = self.detector.detectMarkers(gray)
 
         if ids is not None and 1 in ids:
@@ -38,7 +47,7 @@ class DeformationTracker:
         else:
             return None
 
-def process_video(video_path, aruco_dict_type, marker_size_mm):
+def process_video(video_path, aruco_dict_type, marker_size_mm, skip_frames, use_cuda):
     if not os.path.exists(video_path):
         st.error(f"Error: Video file '{video_path}' not found.")
         return None, None
@@ -49,14 +58,15 @@ def process_video(video_path, aruco_dict_type, marker_size_mm):
         return None, None
     
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    deformation_tracker = DeformationTracker(aruco_dict_type, marker_size_mm)
+    deformation_tracker = DeformationTracker(aruco_dict_type, marker_size_mm, use_cuda)
     deformations = []
     frame_numbers = []
     
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    for frame_count in range(total_frames):
+    for frame_count in range(0, total_frames, skip_frames):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count)
         ret, frame = cap.read()
         if not ret:
             break
@@ -120,10 +130,15 @@ def main():
         video_path = "temp_video.mp4"
         aruco_dict_type = cv2.aruco.DICT_5X5_250
         marker_size_mm = st.number_input("Marker size (mm)", value=150, min_value=1)
+        skip_frames = st.number_input("Skip frames", value=20, min_value=1, help="Process every nth frame")
         output_file = "deformation_data_marker1.csv"
 
+        # Check if CUDA is available
+        use_cuda = cv2.cuda.getCudaEnabledDeviceCount() > 0
+        st.write(f"CUDA is {'available' if use_cuda else 'not available'} for processing")
+
         if st.button("Process Video"):
-            frame_numbers, deformations = process_video(video_path, aruco_dict_type, marker_size_mm)
+            frame_numbers, deformations = process_video(video_path, aruco_dict_type, marker_size_mm, skip_frames, use_cuda)
 
             if frame_numbers is not None and deformations is not None:
                 plot_deformation(frame_numbers, deformations)
