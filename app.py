@@ -6,6 +6,7 @@ import os
 import csv
 from tqdm import tqdm
 from scipy.optimize import curve_fit
+from PIL import Image
 
 class DeformationTracker:
     def __init__(self, aruco_dict_type, marker_size_mm, use_cuda):
@@ -118,8 +119,14 @@ def save_data(frame_numbers, deformations, output_file):
             writer.writerow([frame, deformation])
     st.success(f"Data saved to {output_file}")
 
+def add_logo(logo_path, size=(200, 150)):
+    logo = Image.open('logoAI.png')
+    logo = logo.resize(size)
+    st.image(logo, use_column_width=False)
+
 def main():
     st.title("Pile Driving blow count")
+    add_logo("logoAI.png")
 
     uploaded_file = st.file_uploader("Choose a video file", type=["mp4", "avi", "mov"])
     
