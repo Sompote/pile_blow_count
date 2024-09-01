@@ -4,3 +4,4 @@ matplotlib
 csvfile
 tqdm
 scipy
+Pillow
