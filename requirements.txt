@@ -1,5 +1,5 @@
 streamlit
-opencv-python-contrib-headless 
+opencv-python-headless 
 matplotlib
 csvfile
 tqdm
